@@ -1,24 +1,45 @@
-# Node.js + AWS RDS MySQL User Registry
+# Node.js + AWS RDS MySQL User App (Automatic DB Setup)
+
+## What is automatic?
+When the app starts, `server.js`:
+1. Connects to the MySQL server without selecting a database.
+2. Runs `CREATE DATABASE IF NOT EXISTS` using `DB_NAME`.
+3. Connects to that database.
+4. Runs `CREATE TABLE IF NOT EXISTS users (...)`.
+5. Starts the Express server only after database initialization succeeds.
+
+## Requirements
+- Node.js and npm on EC2
+- Reachable AWS RDS MySQL endpoint
+- A MySQL user that has permission to create databases and tables
+- RDS security group allowing inbound TCP 3306 from the EC2 security group
 
 ## Setup
-1. Install Node.js 20+ and npm.
-2. `npm install`
-3. Create a database/table using `schema.sql` (connect as a MySQL user with database creation permissions):
-   `mysql -h YOUR_RDS_ENDPOINT -P 3306 -u admin -p < schema.sql`
-4. Copy `.env.example` to `.env` and set the actual endpoint, database username, and password.
-5. Run `npm start`.
-6. Visit `http://localhost:3000`, or `http://YOUR_EC2_PUBLIC_IP:3000` if you explicitly allow inbound TCP 3000 from your IP in the EC2 security group.
+1. Extract this ZIP and enter the project folder.
+2. Create `.env` from `.env.example`:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+3. Set the real RDS endpoint, username, password and desired database name.
+4. Install packages and start:
+   ```bash
+   npm install
+   npm start
+   ```
 
-## AWS network configuration
-- RDS inbound TCP 3306: source = your EC2 security group (not 0.0.0.0/0).
-- EC2 and RDS must have compatible VPC routes, network ACLs, and DNS resolution.
-- If you see `Unknown MySQL server host`, verify the RDS endpoint copied from the RDS console and test `getent hosts YOUR_RDS_ENDPOINT` before retrying.
-- Use HTTPS and authentication before exposing this demo publicly; the demo has no authentication or rate limiting.
+Default database name is `user_app`. The app creates the database and `users` table automatically if they do not exist.
 
-## Files
-- `server.js`: Express API and MySQL connection pool
-- `public/index.html`: user form
-- `public/style.css`: styles
-- `public/script.js`: fetch API client
-- `schema.sql`: database setup
-- `.env.example`: environment variable template
+## Important permissions
+The RDS database user must be allowed to run `CREATE DATABASE` and `CREATE TABLE`. The RDS master user usually has the needed permissions. If you use a restricted database user, an administrator must grant the required privileges.
+
+Automatic creation does not fix DNS, VPC, security-group, subnet, or incorrect-password problems. The EC2 instance must already be able to reach the RDS endpoint on port 3306.
+
+## Test
+- `GET /api/health` — database connection health
+- `GET /api/users` — list saved usernames
+- `POST /api/users` with JSON `{"username":"Alex"}` — save a username
+
+Open `http://EC2_PUBLIC_IP:3000` in your browser after allowing inbound TCP 3000 from your own IP in the EC2 security group.
+
+Do not commit `.env` to GitHub or share database credentials.
